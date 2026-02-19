@@ -14,28 +14,35 @@ func inicio(w http.ResponseWriter, r *http.Request) {
 }
 
 func registrar(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Error al leer body", 400)
-			return
-		}
-		var user models.User
-		if err := json.Unmarshal(body, &user); err != nil {
-			http.Error(w, "JSON inválido", 400)
-			return
-		}
-		usuarioRegistrado := services.RegistrarUsuario(user)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(usuarioRegistrado)
-
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
 	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error al leer body", http.StatusBadRequest)
+		return
+	}
+	var user models.User
+	if err := json.Unmarshal(body, &user); err != nil {
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		return
+	}
+	usuarioRegistrado := services.RegistrarUsuario(user)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(usuarioRegistrado)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error al leer body", 400)
+		http.Error(w, "Error al leer body", http.StatusBadRequest)
 		return
 	}
 
@@ -44,32 +51,37 @@ func login(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.Unmarshal(body, &cred); err != nil {
-		http.Error(w, "JSON inválido", 400)
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
 
 	user := services.BuscarUsuario(cred.Email)
 
-	if user.ID == 0 {
-		http.Error(w, "Usuario no encontrado", 404)
+	// validate result
+	if user == nil {
+		http.Error(w, "Usuario no encontrado", http.StatusNotFound)
 		return
 	}
 
 	if user.Password == cred.Password {
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(user)
 	} else {
-		http.Error(w, "Password incorrecto", 401)
+		http.Error(w, "Password incorrecto", http.StatusUnauthorized)
 	}
 }
 func listarUsuarios(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "GET":
+	case http.MethodGet:
 		usuarios := services.ListarUsuarios()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(usuarios)
-	case "POST":
-		fmt.Fprintf(w, "Crear usuario")
-
+	case http.MethodPost:
+		// could forward to registrar or similar logic
+		w.WriteHeader(http.StatusNotImplemented)
+		fmt.Fprintf(w, "Crear usuario no implementado")
+	default:
+		http.Error(w, "Método no permitido", http.StatusMethodNotAllowed)
 	}
 }
 
