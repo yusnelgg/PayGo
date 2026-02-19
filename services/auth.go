@@ -15,3 +15,16 @@ func RegistrarUsuario(user models.User) models.User {
 	fmt.Printf("Usuario registrado: %s\n", user.Username)
 	return user
 }
+
+func BuscarUsuario(email string) *models.User {
+	for _, user := range users {
+		if user.Email == email {
+			return &user
+		}
+	}
+	return nil
+}
+
+func ListarUsuarios() []models.User {
+	return users
+}
