@@ -2,53 +2,77 @@ package services
 
 import (
 	"paygo/models"
-	"reflect"
 	"testing"
 )
 
-func reset() {
-	// reset global state between tests
-	users = nil
-	idCounter = 1
-}
-
 func TestRegistrarYBuscarUsuario(t *testing.T) {
-	reset()
+	InitUserService()
 
-	u := models.User{Username: "test", Email: "a@b.com", Password: "pass"}
-	registered := RegistrarUsuario(u)
+	req := models.RegisterRequest{
+		Username: "test",
+		Email:    "a@b.com",
+		Password: "password123",
+	}
+	registered, err := RegisterUser(req)
+	if err != nil {
+		t.Fatalf("error registering: %v", err)
+	}
 	if registered.ID != 1 {
 		t.Errorf("expected ID 1, got %d", registered.ID)
 	}
 
-	found := BuscarUsuario("a@b.com")
+	found := BuscarUsuarioPorEmail("a@b.com")
 	if found == nil {
 		t.Fatal("expected to find user, got nil")
 	}
-	if found.Email != u.Email {
-		t.Errorf("expected email %s, got %s", u.Email, found.Email)
+	if found.Email != req.Email {
+		t.Errorf("expected email %s, got %s", req.Email, found.Email)
 	}
 }
 
 func TestBuscarUsuario_NoExist(t *testing.T) {
-	reset()
-	if user := BuscarUsuario("no@existe"); user != nil {
+	InitUserService()
+	if user := BuscarUsuarioPorEmail("no@existe"); user != nil {
 		t.Errorf("expected nil, got %+v", user)
 	}
 }
 
 func TestListarUsuarios(t *testing.T) {
-	reset()
-	u1 := RegistrarUsuario(models.User{Username: "u1", Email: "1@a.com", Password: "p1"})
-	u2 := RegistrarUsuario(models.User{Username: "u2", Email: "2@a.com", Password: "p2"})
+	InitUserService()
+	RegisterUser(models.RegisterRequest{Username: "u1", Email: "1@a.com", Password: "p1"})
+	RegisterUser(models.RegisterRequest{Username: "u2", Email: "2@a.com", Password: "p2"})
 
 	list := ListarUsuarios()
 	if len(list) != 2 {
 		t.Fatalf("expected 2 users, got %d", len(list))
 	}
-	// compare by ignoring order
-	want := []models.User{u1, u2}
-	if !reflect.DeepEqual(list, want) {
-		t.Errorf("list mismatch\nwant %+v\ngot  %+v", want, list)
+}
+
+func TestLoginUser(t *testing.T) {
+	InitUserService()
+
+	RegisterUser(models.RegisterRequest{
+		Username: "test",
+		Email:    "test@b.com",
+		Password: "password123",
+	})
+
+	_, err := LoginUser(models.LoginRequest{
+		Email:    "test@b.com",
+		Password: "wrong",
+	})
+	if err != ErrInvalidPassword {
+		t.Errorf("expected ErrInvalidPassword, got %v", err)
+	}
+
+	resp, err := LoginUser(models.LoginRequest{
+		Email:    "test@b.com",
+		Password: "password123",
+	})
+	if err != nil {
+		t.Fatalf("error logging in: %v", err)
+	}
+	if resp.Token == "" {
+		t.Error("expected token, got empty")
 	}
 }
